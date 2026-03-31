@@ -123,33 +123,12 @@ a{color:inherit;text-decoration:none}
 
 /* GROUP QUOTE */
 .gq-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-bottom:1.5rem}
-.fam-card{background:#fff;border:1px solid #e8e8e0;border-radius:10px;padding:1rem;transition:border-color .2s}
-.fam-card.active{border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.08)}
-.fam-card.done{border-color:#16a34a}
-.fam-card.errored{border-color:#dc2626}
+.fam-card{background:#fff;border:1px solid #e8e8e0;border-radius:10px;padding:1rem}
 .fam-name{font-size:14px;font-weight:600;margin-bottom:6px}
 .fam-detail{font-size:12px;color:#666;margin-bottom:8px}
 .fam-price{font-size:20px;font-weight:700}
 .fam-breakdown{font-size:11px;color:#888;margin-top:4px}
-.fam-loading{font-size:12px;color:#2563eb;display:flex;align-items:center;gap:6px}
-.fam-status{font-size:11px;color:#888;margin-top:3px}
-/* PROGRESS BAR */
-.progress-wrap{margin-bottom:1.25rem;background:#fff;border:1px solid #e8e8e0;border-radius:10px;padding:1rem}
-.progress-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem}
-.progress-label{font-size:13px;font-weight:500}
-.progress-count{font-size:12px;color:#888}
-.progress-bar-bg{background:#f0f0e8;border-radius:999px;height:8px;overflow:hidden}
-.progress-bar-fill{height:100%;background:linear-gradient(90deg,#16a34a,#22c55e);border-radius:999px;transition:width .4s ease}
-.progress-steps{display:flex;gap:0;margin-top:.75rem}
-.progress-step{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px}
-.step-dot{width:10px;height:10px;border-radius:50%;background:#e0e0e0;transition:background .3s}
-.step-dot.done{background:#16a34a}
-.step-dot.active{background:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.2);animation:pulse .8s infinite}
-.step-dot.error{background:#dc2626}
-.step-name{font-size:9px;color:#aaa;text-align:center;line-height:1.2;white-space:nowrap}
-.step-name.done{color:#16a34a;font-weight:500}
-.step-name.active{color:#2563eb;font-weight:600}
-@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.3)}}
+.fam-loading{font-size:12px;color:#666;font-style:italic}
 .total-box{background:#1a1a1a;color:#fff;border-radius:12px;padding:1.25rem;display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem}
 .tot-lbl{font-size:11px;color:#aaa;text-transform:uppercase;letter-spacing:.05em}
 .tot-val{font-size:26px;font-weight:700;margin-top:4px}
@@ -249,16 +228,6 @@ a{color:inherit;text-decoration:none}
 
   <div id="gq-families" style="display:none">
     <div class="card-title" style="margin-bottom:.75rem">Familias — cotización en cruceros.co</div>
-
-    <div class="progress-wrap" id="gq-progress" style="display:none">
-      <div class="progress-header">
-        <span class="progress-label" id="gq-progress-label">Iniciando cotización...</span>
-        <span class="progress-count" id="gq-progress-count">0 / 5</span>
-      </div>
-      <div class="progress-bar-bg"><div class="progress-bar-fill" id="gq-bar" style="width:0%"></div></div>
-      <div class="progress-steps" id="gq-steps"></div>
-    </div>
-
     <div class="gq-grid" id="gq-grid"></div>
 
     <div class="total-box">
@@ -678,64 +647,16 @@ function selectQuoteCruise(id){
 }
 
 let famResults = {};
-let quoteRunning = false;
-
-function updateProgress(doneCount, activeKey){
-  const total = FAMILIES.length;
-  const pct = Math.round((doneCount/total)*100);
-  const bar = document.getElementById('gq-bar');
-  const label = document.getElementById('gq-progress-label');
-  const count = document.getElementById('gq-progress-count');
-  const steps = document.getElementById('gq-steps');
-  if(bar) bar.style.width = pct+'%';
-  if(count) count.textContent = `${doneCount} / ${total}`;
-
-  const activeFam = FAMILIES.find(f=>f.key===activeKey);
-  if(label){
-    if(activeKey && activeFam) label.textContent = `Cotizando: ${activeFam.name}...`;
-    else if(doneCount===total) label.textContent = '✓ Cotización completada';
-    else label.textContent = 'Procesando...';
-  }
-
-  if(steps){
-    steps.innerHTML = FAMILIES.map(f=>{
-      const r = famResults[f.key];
-      const isDone = r && !r.loading;
-      const isActive = f.key === activeKey;
-      const isErr = isDone && r.error;
-      const dotCls = isErr?'step-dot error':isDone?'step-dot done':isActive?'step-dot active':'step-dot';
-      const nameCls = isDone?'step-name done':isActive?'step-name active':'step-name';
-      const shortName = f.name.split(' ')[1]||f.name;
-      return`<div class="progress-step"><div class="${dotCls}"></div><div class="${nameCls}">${shortName}</div></div>`;
-    }).join('');
-  }
-}
 
 async function fetchGroupQuote(cruiseId){
   const item = watchlist.find(w=>w.id===cruiseId);
   if(!item) return;
-  quoteRunning = true;
   famResults = {};
+  renderFamilyCards(item, true);
 
-  // show progress
-  const prog = document.getElementById('gq-progress');
-  if(prog) prog.style.display='block';
-  updateProgress(0, null);
-  renderFamilyCards(item);
-
-  let doneCount = 0;
   for(const fam of FAMILIES){
-    if(!quoteRunning) break;
-    famResults[fam.key] = {loading:true, statusMsg:'Consultando cruceros.co...'};
-    updateProgress(doneCount, fam.key);
-    renderFamilyCards(item);
     await fetchFamilyPrice(fam, item, cruiseId);
-    doneCount++;
-    updateProgress(doneCount, doneCount<FAMILIES.length ? FAMILIES[doneCount].key : null);
-    renderFamilyCards(item);
-    updateGroupTotals();
   }
-  quoteRunning = false;
   updateGroupTotals();
 }
 
@@ -755,7 +676,7 @@ Composición: ${adultsStr}${kidsStr}
 Tipo de cabina: ${cabinType} (la más económica disponible)
 Personas: ${fam.pax}
 
-Busca en cruceros.co el precio para esta configuración. Necesito:
+Busca en cruceros.co (cruceros.co) el precio para esta configuración. Necesito:
 1. Precio base total (todas las personas)
 2. Tasas y fees totales
 3. Propinas totales si aplica
@@ -772,17 +693,15 @@ Responde SOLO con este JSON (sin markdown):
   "note": "texto corto"
 }
 
-Si no puedes obtener el precio exacto de cruceros.co, usa el precio de referencia de ${item.price} USD por persona y estima tasas típicas del 20-25% y propinas de ~$16-18/persona/noche para Carnival. Hoy es 30 de marzo de 2026.`;
+Si no puedes obtener el precio exacto, usa el precio de referencia de ${item.price} USD por persona y estima tasas típicas del 20-25% y propinas de ~$16-18/persona/noche para Carnival. Hoy es 30 de marzo de 2026.`;
 
-  // 35 second timeout
-  const controller = new AbortController();
-  const timeout = setTimeout(()=>controller.abort(), 35000);
+  famResults[fam.key] = {loading:true};
+  renderFamilyCards(item, false);
 
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      signal: controller.signal,
       body:JSON.stringify({
         model:'claude-sonnet-4-20250514',
         max_tokens:600,
@@ -790,20 +709,16 @@ Si no puedes obtener el precio exacto de cruceros.co, usa el precio de referenci
         messages:[{role:'user',content:prompt}]
       })
     });
-    clearTimeout(timeout);
     const data = await res.json();
     const texts=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
     let parsed=null;
     try{const m=texts.replace(/```json|```/g,'').trim().match(/\{[\s\S]*\}/);if(m)parsed=JSON.parse(m[0]);}catch(e){}
     famResults[fam.key] = parsed || estimateFamilyPrice(fam,item);
   } catch(e){
-    clearTimeout(timeout);
-    if(e.name==='AbortError'){
-      famResults[fam.key] = {...estimateFamilyPrice(fam,item), note:'Timeout — estimado por precio de referencia'};
-    } else {
-      famResults[fam.key] = {...estimateFamilyPrice(fam,item), note:'Error de red — estimado por precio de referencia'};
-    }
+    famResults[fam.key] = estimateFamilyPrice(fam,item);
   }
+  renderFamilyCards(item, false);
+  updateGroupTotals();
 }
 
 function estimateFamilyPrice(fam, item){
@@ -815,29 +730,22 @@ function estimateFamilyPrice(fam, item){
   return {base, taxes, gratuity, total:base+taxes+gratuity, note:'Estimado basado en precio de referencia'};
 }
 
-function renderFamilyCards(item){
+function renderFamilyCards(item, loading){
   const el = document.getElementById('gq-grid');
   el.innerHTML = FAMILIES.map(fam=>{
     const r = famResults[fam.key];
-    const kidsStr = fam.kids.length ? `Menores: ${fam.kids.join(', ')} años` : 'Solo adultos';
-    const isActive = r && r.loading;
-    const isDone = r && !r.loading;
-    const cardCls = isActive?'fam-card active':isDone?'fam-card done':'fam-card';
+    const kidsStr = fam.kids.length ? `Niños: ${fam.kids.join(', ')} años` : 'Solo adultos';
     let priceHtml;
-    if(!r){
-      priceHtml=`<div class="fam-status" style="color:#aaa">En espera...</div>`;
-    } else if(r.loading){
-      priceHtml=`<div class="fam-loading"><span class="spin">⟳</span> Consultando cruceros.co...</div>
-        <div class="fam-status">${r.statusMsg||''}</div>`;
+    if(!r||r.loading){
+      priceHtml=`<div class="fam-loading"><span class="spin">⟳</span> Cotizando en cruceros.co...</div>`;
     } else {
-      const noteColor = r.note&&r.note.includes('stimado') ? '#b45309' : '#888';
       priceHtml=`<div class="fam-price">${fmt(r.total)}</div>
         <div class="fam-breakdown">Base: ${fmt(r.base)} · Tasas: ${fmt(r.taxes)}${r.gratuity?` · Propinas: ${fmt(r.gratuity)}`:''}</div>
-        ${r.note?`<div style="font-size:11px;color:${noteColor};margin-top:4px">ℹ ${r.note}</div>`:''}`;
+        ${r.note?`<div style="font-size:11px;color:#888;margin-top:4px">${r.note}</div>`:''}`;
     }
-    return`<div class="${cardCls}">
-      <div class="fam-name">${isActive?'⟳ ':''}${fam.name}</div>
-      <div class="fam-detail">${fam.adults} adulto${fam.adults>1?'s':''} + ${fam.kids.length} menor${fam.kids.length!==1?'es':''} · ${kidsStr}<br>Cabina: ${fam.cabin}</div>
+    return`<div class="fam-card">
+      <div class="fam-name">${fam.name}</div>
+      <div class="fam-detail">${fam.adults} adulto${fam.adults>1?'s':''} + ${fam.kids.length} menor${fam.kids.length!==1?'es':''} · ${kidsStr} · Cabina: ${fam.cabin}</div>
       ${priceHtml}
     </div>`;
   }).join('');
@@ -859,11 +767,7 @@ function updateGroupTotals(){
 
 async function requoteAll(){
   if(!selectedQuoteCruise) return;
-  quoteRunning = false;
-  await new Promise(r=>setTimeout(r,100));
   famResults={};
-  const prog = document.getElementById('gq-progress');
-  if(prog) prog.style.display='block';
   fetchGroupQuote(selectedQuoteCruise);
 }
 
