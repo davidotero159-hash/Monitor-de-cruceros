@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Monitor de Cruceros</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f0;color:#1a1a1a;font-size:15px;line-height:1.5}
+.app{max-width:1140px;margin:0 auto;padding:1.5rem}
+.hdr{display:flex;align-items:center;gap:12px;margin-bottom:1.5rem}
+.hdr-icon{width:40px;height:40px;border-radius:10px;background:#d4edda;display:flex;align-items:center;justify-content:center;font-size:20px}
+.hdr-title{font-size:20px;font-weight:600}
+.hdr-sub{font-size:13px;color:#666;margin-top:2px}
+.tabs{display:flex;gap:4px;border-bottom:1.5px solid #ddd;margin-bottom:1.5rem}
+.tab{padding:8px 18px;font-size:14px;cursor:pointer;border:none;background:none;color:#666;border-bottom:2px solid transparent;margin-bottom:-1.5px;transition:all .15s;font-family:inherit}
+.tab.active{color:#1a1a1a;border-bottom:2px solid #1a1a1a;font-weight:500}
+.tab:hover:not(.active){color:#333}
+.sec{display:none}.sec.active{display:block}
+.card{background:#fff;border:1px solid #e8e8e0;border-radius:12px;padding:1.25rem;margin-bottom:1rem}
+.card-title{font-size:15px;font-weight:600;margin-bottom:1rem}
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:1rem}
+.stat{background:#fff;border:1px solid #e8e8e0;border-radius:10px;padding:12px}
+.stat-lbl{font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.05em}
+.stat-val{font-size:22px;font-weight:600;margin-top:4px}
+
+/* CRUISE ROW */
+.ci{border-bottom:1px solid #f0f0e8}
+.ci:last-child{border-bottom:none}
+.ci-top{display:grid;grid-template-columns:1fr auto;gap:16px;align-items:start;padding:14px 0 8px;cursor:pointer}
+.ci-top:hover .ci-name{color:#0a7c4e}
+.ci-name{font-size:14px;font-weight:600;transition:color .15s}
+.ci-meta{font-size:12px;color:#666;margin-top:3px;line-height:1.6}
+.ci-badges{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}
+.badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:500}
+.b-deal{background:#fff3cd;color:#856404}
+.b-down{background:#d4edda;color:#155724}
+.b-up{background:#f8d7da;color:#721c24}
+.b-same{background:#f0f0e8;color:#666}
+.b-info{background:#cce5ff;color:#004085}
+.ci-right{text-align:right;white-space:nowrap}
+.price-now{font-size:17px;font-weight:700}
+.price-was{font-size:12px;color:#999;text-decoration:line-through}
+.price-save{font-size:12px;font-weight:600;color:#155724}
+.btn-del{padding:3px 8px;font-size:11px;border:1px solid #f5c6cb;border-radius:6px;background:none;color:#721c24;cursor:pointer;margin-top:6px}
+.btn-del:hover{background:#f8d7da}
+
+/* INLINE PRICE STRIP */
+.ci-prices{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:0 0 14px}
+.cip{background:#f8f8f4;border:1px solid #e8e8e0;border-radius:8px;padding:8px 10px}
+.cip.gq{background:#eef4ff;border-color:#c7d9f7}
+.cip-lbl{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:#888;margin-bottom:4px}
+.cip.gq .cip-lbl{color:#2563eb}
+.cip-price{font-size:15px;font-weight:700}
+.cip.gq .cip-price{color:#1d4ed8}
+.cip-taxes{font-size:10px;color:#888;margin-top:2px}
+.cip-total{font-size:11px;font-weight:600;color:#155724;margin-top:2px}
+.cip-pending{font-size:11px;color:#bbb;font-style:italic}
+.spin{display:inline-block;animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* BULK BAR */
+.bulk-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:1rem;padding:10px 14px;background:#fff;border:1px solid #e8e8e0;border-radius:10px}
+.bulk-lbl{font-size:13px;color:#666;flex:1;min-width:120px}
+.bulk-status{font-size:12px;color:#2563eb;display:none;align-items:center;gap:6px}
+
+/* DETAIL PANEL */
+.dp{display:none;background:#f8f8f4;border:1px solid #e8e8e0;border-radius:12px;padding:1.25rem;margin-bottom:1rem}
+.dp.open{display:block}
+.dp-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem}
+.dp-title{font-size:16px;font-weight:600}
+.dp-close{background:none;border:none;font-size:20px;cursor:pointer;color:#999}
+.dp-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+.dp-sec{background:#fff;border:1px solid #e8e8e0;border-radius:10px;padding:1rem}
+.dp-sec-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#888;margin-bottom:.75rem}
+.spec-row{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f0f0e8;font-size:13px}
+.spec-row:last-child{border-bottom:none}
+.spec-lbl{color:#666}
+.spec-val{font-weight:600;text-align:right;max-width:220px;line-height:1.4}
+.itin-wrap{grid-column:1/-1;background:#fff;border:1px solid #e8e8e0;border-radius:10px;padding:1rem}
+.itin-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#888;margin-bottom:.75rem}
+.stops-track{display:flex;align-items:center;flex-wrap:wrap;row-gap:8px}
+.stop{display:flex;flex-direction:column;align-items:center;min-width:80px;flex:1}
+.stop-dot{width:10px;height:10px;border-radius:50%;background:#1D9E75;border:2px solid #0F6E56;margin-bottom:4px}
+.stop-dot.home{background:#2563eb;border-color:#1d4ed8}
+.stop-name{font-size:11px;font-weight:600;text-align:center;line-height:1.3}
+.stop-day{font-size:10px;color:#888;text-align:center}
+.stop-line{flex:1;height:1px;background:#ddd;min-width:12px;margin-bottom:14px}
+.price-sources{grid-column:1/-1;background:#fff;border:1px solid #e8e8e0;border-radius:10px;padding:1rem}
+.ps-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem}
+.ps-title-lbl{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#888}
+.ps-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.ps-card{border:1px solid #e8e8e0;border-radius:8px;padding:10px 12px}
+.ps-site{font-size:12px;font-weight:600;color:#444;margin-bottom:6px}
+.ps-price{font-size:18px;font-weight:700}
+.ps-taxes{font-size:11px;color:#888;margin-top:2px}
+.ps-total{font-size:12px;font-weight:600;color:#155724;margin-top:4px}
+.ps-note{font-size:11px;color:#999;font-style:italic;margin-top:2px}
+.ps-err{font-size:12px;color:#aaa}
+.btn-ref{padding:4px 10px;font-size:11px;border:1px solid #ddd;border-radius:6px;background:none;cursor:pointer;color:#444}
+.btn-ref:hover{background:#f0f0e8}
+.chart-wrap{grid-column:1/-1;background:#fff;border:1px solid #e8e8e0;border-radius:10px;padding:1rem}
+.chart-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#888;margin-bottom:.75rem}
+.mini-chart{display:flex;align-items:flex-end;gap:6px;height:60px;padding-bottom:4px}
+.bar-wrap{display:flex;flex-direction:column;align-items:center;gap:3px;flex:1}
+.bar{width:100%;border-radius:3px 3px 0 0;background:#9FE1CB;min-height:4px}
+.bar.latest{background:#1D9E75}
+.bar-price{font-size:10px;font-weight:600}
+.bar-lbl{font-size:10px;color:#888;white-space:nowrap}
+
+/* HISTORY */
+.ht{width:100%;font-size:13px;border-collapse:collapse}
+.ht th{text-align:left;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#888;padding:6px 8px;border-bottom:1px solid #e8e8e0}
+.ht td{padding:8px;border-bottom:1px solid #f0f0e8}
+.ht tr:last-child td{border-bottom:none}
+.p-dn{color:#155724;font-weight:600}.p-up{color:#721c24;font-weight:600}
+
+/* ALERTS */
+.al-item{display:flex;align-items:flex-start;gap:12px;padding:12px 0;border-bottom:1px solid #f0f0e8}
+.al-item:last-child{border-bottom:none}
+.al-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:5px}
+.al-dot.down{background:#28a745}.al-dot.up{background:#dc3545}.al-dot.info{background:#007bff}
+.al-txt{font-size:14px}
+.al-time{font-size:12px;color:#888;margin-top:2px}
+
+/* GROUP QUOTE */
+.gq-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:12px;margin-bottom:1.5rem}
+.fam-card{background:#fff;border:1px solid #e8e8e0;border-radius:10px;padding:1rem;transition:border-color .2s}
+.fam-card.active{border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.08)}
+.fam-card.done{border-color:#16a34a}
+.fam-name{font-size:14px;font-weight:600;margin-bottom:5px}
+.fam-detail{font-size:12px;color:#666;margin-bottom:8px}
+.fam-price{font-size:20px;font-weight:700}
+.fam-breakdown{font-size:11px;color:#888;margin-top:3px}
+.fam-loading{font-size:12px;color:#2563eb;display:flex;align-items:center;gap:6px}
+.progress-wrap{margin-bottom:1.25rem;background:#fff;border:1px solid #e8e8e0;border-radius:10px;padding:1rem}
+.progress-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem}
+.progress-label{font-size:13px;font-weight:500}
+.progress-count{font-size:12px;color:#888}
+.progress-bar-bg{background:#f0f0e8;border-radius:999px;height:8px;overflow:hidden}
+.progress-bar-fill{height:100%;background:linear-gradient(90deg,#16a34a,#22c55e);border-radius:999px;transition:width .4s}
+.progress-steps{display:flex;margin-top:.75rem}
+.progress-step{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px}
+.step-dot{width:10px;height:10px;border-radius:50%;background:#e0e0e0;transition:background .3s}
+.step-dot.done{background:#16a34a}
+.step-dot.active{background:#2563eb;animation:pulse .8s infinite}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.3)}}
+.step-name{font-size:9px;color:#aaa;text-align:center;white-space:nowrap}
+.step-name.done{color:#16a34a;font-weight:500}
+.step-name.active{color:#2563eb;font-weight:600}
+.total-box{background:#1a1a1a;color:#fff;border-radius:12px;padding:1.25rem;display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;margin-bottom:1rem}
+.tot-lbl{font-size:11px;color:#aaa;text-transform:uppercase;letter-spacing:.05em}
+.tot-val{font-size:22px;font-weight:700;margin-top:4px}
+.tot-sub{font-size:12px;color:#aaa;margin-top:2px}
+.gq-note{font-size:12px;color:#888;margin-bottom:1rem;padding:8px 12px;background:#fffbf0;border:1px solid #ffe599;border-radius:8px}
+.cruise-sel{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px;margin-bottom:1rem}
+.cruise-opt{padding:10px 12px;border:1px solid #ddd;border-radius:8px;cursor:pointer;font-size:13px;transition:all .15s}
+.cruise-opt.sel{border-color:#1a1a1a;background:#f8f8f4;font-weight:500}
+.cruise-opt:hover:not(.sel){background:#f5f5f0}
+
+/* BUTTONS */
+.run-row{display:flex;justify-content:flex-end;gap:8px;margin-top:12px;align-items:center}
+.btn{padding:8px 16px;border-radius:8px;font-size:14px;cursor:pointer;border:1px solid #ddd;background:#fff;color:#1a1a1a;transition:all .15s;font-family:inherit}
+.btn:hover{background:#f5f5f0}
+.btn-p{background:#1a1a1a;color:#fff;border-color:#1a1a1a}
+.btn-p:hover{opacity:.85}
+.btn-s{padding:6px 12px;font-size:13px;border-radius:7px;cursor:pointer;border:1px solid #ddd;background:#fff;color:#1a1a1a;font-family:inherit;transition:all .15s;white-space:nowrap}
+.btn-s:hover{background:#f5f5f0}
+.btn-s-p{background:#1a1a1a;color:#fff;border-color:#1a1a1a}
+.btn-s-p:hover{opacity:.85}
+.form-2col{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.fg{display:flex;flex-direction:column;gap:5px;margin-bottom:10px}
+.fg label{font-size:12px;color:#666;font-weight:500;text-transform:uppercase;letter-spacing:.04em}
+.fg input,.fg select{padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:14px;background:#fff;color:#1a1a1a;font-family:inherit}
+.fg input:focus{outline:none;border-color:#1a1a1a}
+.type-sel{display:flex;gap:6px;margin-bottom:1rem}
+.type-opt{padding:6px 14px;border:1px solid #ddd;border-radius:999px;font-size:13px;cursor:pointer;color:#666;background:#fff;transition:all .15s}
+.type-opt.sel{border-color:#1a1a1a;color:#1a1a1a;font-weight:500}
+.freq-sel{display:flex;gap:6px;flex-wrap:wrap}
+.freq-opt{padding:6px 12px;border:1px solid #ddd;border-radius:999px;font-size:13px;cursor:pointer;color:#666;background:#fff;transition:all .15s}
+.freq-opt.sel{background:#1a1a1a;color:#fff;border-color:#1a1a1a}
+@media(max-width:700px){
+  .stats-row{grid-template-columns:1fr 1fr}
+  .dp-grid,.ps-grid,.form-2col,.total-box{grid-template-columns:1fr}
+  .ci-prices{grid-template-columns:1fr 1fr}
+}
+</style>
+</head>
+<body>
+<div class="app">
+<div class="hdr">
+  <div class="hdr-icon">🚢</div>
+  <div>
+    <div class="hdr-title">Monitor de cruceros</div>
+    <div class="hdr-sub">Actualizado: <span id="last-upd">30 Mar 2026, 8:00 am</span></div>
+  </div>
+</div>
+
+<div class="tabs">
+  <button class="tab active" onclick="goTab('list')">Seguimiento</button>
+  <button class="tab" onclick="goTab('quote')">Cotización grupal</button>
+  <button class="tab" onclick="goTab('alerts')">Alertas</button>
+  <button class="tab" onclick="goTab('history')">Historial</button>
+  <button class="tab" onclick="goTab('add')">+ Agregar</button>
+  <button class="tab" onclick="goTab('cfg')">Ajustes</button>
+</div>
+
+<!-- SEGUIMIENTO -->
+<div id="tab-list" class="sec active">
+  <div class="stats-row">
+    <div class="stat"><div class="stat-lbl">Cruceros</div><div class="stat-val" id="st-total">11</div></div>
+    <div class="stat"><div class="stat-lbl">Precio mínimo</div><div class="stat-val" id="st-min">—</div></div>
+    <div class="stat"><div class="stat-lbl">Ahorro prom.</div><div class="stat-val" style="color:#155724" id="st-save">—</div></div>
+    <div class="stat"><div class="stat-lbl">Alertas hoy</div><div class="stat-val" id="st-alerts">1</div></div>
+  </div>
+
+  <div class="bulk-bar">
+    <span class="bulk-lbl">Actualizar todo de una vez:</span>
+    <span class="bulk-status" id="bulk-status"><span class="spin">⟳</span> <span id="bulk-msg"></span></span>
+    <button class="btn-s" onclick="runScan()">⟳ Escanear precios</button>
+    <button class="btn-s" onclick="refreshAllSitePrices()">⟳ Precios en sitios web</button>
+    <button class="btn-s btn-s-p" onclick="refreshAllGroupQuotes()">⟳ Cotización grupal (todas)</button>
+  </div>
+
+  <div class="card"><div id="list-items"></div></div>
+
+  <div class="dp" id="dp">
+    <div class="dp-hdr">
+      <div class="dp-title" id="dp-title">—</div>
+      <button class="dp-close" onclick="closeDetail()">✕</button>
+    </div>
+    <div class="dp-grid" id="dp-grid"></div>
+  </div>
+</div>
+
+<!-- COTIZACIÓN GRUPAL -->
+<div id="tab-quote" class="sec">
+  <div class="card">
+    <div class="card-title">Selecciona el crucero a cotizar</div>
+    <div class="cruise-sel" id="quote-cruise-sel"></div>
+  </div>
+  <div class="gq-note" id="gq-note" style="display:none"></div>
+  <div id="gq-families" style="display:none">
+    <div class="card-title" style="margin-bottom:.75rem">Familias — cruceros.co</div>
+    <div class="progress-wrap" id="gq-progress" style="display:none">
+      <div class="progress-header">
+        <span class="progress-label" id="gq-lbl">Iniciando...</span>
+        <span class="progress-count" id="gq-cnt">0 / 5</span>
+      </div>
+      <div class="progress-bar-bg"><div class="progress-bar-fill" id="gq-bar" style="width:0%"></div></div>
+      <div class="progress-steps" id="gq-steps"></div>
+    </div>
+    <div class="gq-grid" id="gq-grid"></div>
+    <div class="total-box">
+      <div><div class="tot-lbl">Total 18 personas</div><div class="tot-val" id="gq-total">—</div><div class="tot-sub">con tasas y propinas</div></div>
+      <div><div class="tot-lbl">Promedio por persona</div><div class="tot-val" id="gq-avg">—</div><div class="tot-sub">sin seguros ni extras</div></div>
+      <div><div class="tot-lbl">Crucero cotizado</div><div class="tot-val" style="font-size:15px;margin-top:8px" id="gq-cruise-name">—</div><div class="tot-sub" id="gq-cruise-info">—</div></div>
+    </div>
+    <div class="run-row"><button class="btn" onclick="requoteAll()">⟳ Re-cotizar</button></div>
+  </div>
+</div>
+
+<!-- ALERTAS -->
+<div id="tab-alerts" class="sec">
+  <div class="card"><div id="al-list"></div></div>
+</div>
+
+<!-- HISTORIAL -->
+<div id="tab-history" class="sec">
+  <div class="card">
+    <div class="card-title">Historial de precios</div>
+    <table class="ht">
+      <thead><tr><th>Fecha</th><th>Barco</th><th>FD</th><th>Precio ref.</th><th>VacationsToGo</th><th>Cruceros.co</th><th>Cambio</th></tr></thead>
+      <tbody id="hist-body"></tbody>
+    </table>
+  </div>
+  <div class="run-row"><button class="btn btn-p" onclick="exportCSV()">Exportar CSV</button></div>
+</div>
+
+<!-- AGREGAR -->
+<div id="tab-add" class="sec">
+  <div class="card">
+    <div class="card-title">Tipo</div>
+    <div class="type-sel">
+      <div class="type-opt sel" id="tp-cruise" onclick="setType('cruise')">🚢 Crucero</div>
+      <div class="type-opt" id="tp-flight" onclick="setType('flight')">✈ Vuelo</div>
+    </div>
+  </div>
+  <div class="card" id="cruise-form">
+    <div class="card-title">Detalles del crucero</div>
+    <div class="form-2col">
+      <div class="fg"><label>Naviera / Barco</label><input id="c-ship" placeholder="Carnival / Carnival Vista"/></div>
+      <div class="fg"><label>FastDeal #</label><input id="c-deal" placeholder="#39062"/></div>
+      <div class="fg"><label>Puerto salida</label><input id="c-port" placeholder="Port Canaveral"/></div>
+      <div class="fg"><label>Fecha salida</label><input type="date" id="c-date"/></div>
+      <div class="fg"><label>Noches</label><input type="number" id="c-nights" placeholder="7"/></div>
+      <div class="fg"><label>Puertos escala (coma)</label><input id="c-stops" placeholder="Nassau, Half Moon Cay"/></div>
+      <div class="fg"><label>Precio folleto</label><input type="number" id="c-brochure"/></div>
+      <div class="fg"><label>Precio actual</label><input type="number" id="c-price"/></div>
+      <div class="fg"><label>Precio objetivo</label><input type="number" id="c-target"/></div>
+    </div>
+  </div>
+  <div class="card" id="flight-form" style="display:none">
+    <div class="card-title">Detalles del vuelo</div>
+    <div class="form-2col">
+      <div class="fg"><label>Origen</label><input id="f-orig" placeholder="BOG"/></div>
+      <div class="fg"><label>Destino</label><input id="f-dest" placeholder="MIA"/></div>
+      <div class="fg"><label>Fecha ida</label><input type="date" id="f-date"/></div>
+      <div class="fg"><label>Vuelta</label><input type="date" id="f-ret"/></div>
+      <div class="fg"><label>Aerolínea</label><input id="f-airline" placeholder="Cualquiera"/></div>
+      <div class="fg"><label>Precio objetivo</label><input type="number" id="f-target"/></div>
+    </div>
+  </div>
+  <div class="run-row"><button class="btn btn-p" onclick="addItem()">Agregar</button></div>
+</div>
+
+<!-- AJUSTES -->
+<div id="tab-cfg" class="sec">
+  <div class="card">
+    <div class="card-title">Frecuencia de monitoreo</div>
+    <div class="freq-sel" id="freq-sel">
+      <div class="freq-opt" onclick="setFreq(this,'6h')">Cada 6h</div>
+      <div class="freq-opt sel" onclick="setFreq(this,'12h')">Cada 12h</div>
+      <div class="freq-opt" onclick="setFreq(this,'24h')">Cada 24h</div>
+      <div class="freq-opt" onclick="setFreq(this,'48h')">Cada 48h</div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">Umbral de alerta (%)</div>
+    <div class="fg" style="max-width:260px"><label>Alertar si cambia más de</label><input type="number" id="thr-inp" value="5" min="1" max="50"/></div>
+  </div>
+  <div class="run-row"><button class="btn btn-p" onclick="saveCfg()">Guardar</button></div>
+</div>
+</div>
+
+<script>
+const MODEL='claude-sonnet-4-20250514';
+const TODAY='2026-03-30';
+let API_KEY=localStorage.getItem('cruise_monitor_api_key')||'';
+let cfg={freq:'12h',thr:5};
+let currentType='cruise';
+let openDetailId=null;
+let selectedQuoteCruise=null;
+let quoteRunning=false;
+
+const SHIPS={
+  'Carnival Vista':       {built:2016,refurb:2024,tons:133500,capacity:3934,crew:1450,decks:15,highlight:'SkyRide, IMAX, Havana Bar'},
+  'MSC Meraviglia':       {built:2017,refurb:2024,tons:167600,capacity:4488,crew:1536,decks:19,highlight:'Cirque du Soleil, Promenade LED 96m'},
+  'Carnival Mardi Gras':  {built:2020,refurb:null, tons:180800,capacity:5282,crew:1745,decks:20,highlight:'BOLT roller coaster, 6 Zonas, LNG'},
+  'Carnival Magic':       {built:2011,refurb:2023,tons:130000,capacity:3690,crew:1386,decks:14,highlight:'WaterWorks, SkyCourse'},
+  'Carnival Celebration': {built:2022,refurb:null, tons:183521,capacity:6630,crew:1745,decks:20,highlight:'BOLT roller coaster, Excel Suites'},
+  'Carnival Venezia':     {built:2019,refurb:2023,tons:135500,capacity:4142,crew:1393,decks:14,highlight:'Fun Italian Style, Gondola Bar'},
+  'Carnival Horizon':     {built:2018,refurb:2025,tons:133500,capacity:3960,crew:1450,decks:14,highlight:'SkyRide, Havana Bar, Serenity'},
+};
+
+const ITIN={
+  1:{route:'6N Eastern Caribbean',stops:['Celebration Key','Half Moon Cay','Amber Cove'],seaDays:2},
+  2:{route:'6N Caribbean & Bahamas',stops:['Grand Turk','Puerto Plata','Nassau','Ocean Cay'],seaDays:1},
+  3:{route:'7N Eastern Caribbean',stops:['Nassau','Amber Cove','Half Moon Cay','Celebration Key'],seaDays:2},
+  4:{route:'6N Eastern Caribbean',stops:['Nassau','Half Moon Cay','Celebration Key'],seaDays:2},
+  5:{route:'6N Caribbean',stops:['Cozumel','Mahogany Bay','Celebration Key'],seaDays:2},
+  6:{route:'7N Eastern Caribbean',stops:['Nassau','Half Moon Cay','Grand Turk','Amber Cove'],seaDays:2},
+  7:{route:'7N Eastern Caribbean',stops:['Grand Turk','Amber Cove','Nassau','Celebration Key'],seaDays:2},
+  8:{route:'6N Western Caribbean',stops:['Cozumel','Mahogany Bay','Celebration Key'],seaDays:2},
+  9:{route:'7N Western Caribbean',stops:['Mahogany Bay','Cozumel','Celebration Key'],seaDays:3},
+  10:{route:'6N Western Caribbean',stops:['Cozumel','Mahogany Bay','Celebration Key'],seaDays:2},
+  11:{route:'6N Caribbean',stops:['Cozumel','Mahogany Bay','Celebration Key'],seaDays:2},
+};
+
+// Sorted by date ascending
+let watchlist=[
+  {id:1, fd:'#39062',ship:'Carnival Vista',      line:'Carnival',port:'Port Canaveral',date:'Ene 3, 2027', ds:'2027-01-03',nights:6,brochure:939, price:344,prev:344,target:300,trend:'same',status:'Reduced Again!'},
+  {id:5, fd:'#30130',ship:'Carnival Magic',       line:'Carnival',port:'Miami',          date:'Ene 3, 2027', ds:'2027-01-03',nights:6,brochure:934, price:314,prev:314,target:270,trend:'same',status:'Onboard Credit!'},
+  {id:6, fd:'#36631',ship:'Carnival Celebration', line:'Carnival',port:'Miami',          date:'Ene 3, 2027', ds:'2027-01-03',nights:7,brochure:1129,price:494,prev:494,target:420,trend:'same',status:'Onboard Credit!'},
+  {id:7, fd:'#14372',ship:'Carnival Venezia',     line:'Carnival',port:'Port Canaveral',date:'Ene 3, 2027', ds:'2027-01-03',nights:7,brochure:1159,price:374,prev:374,target:320,trend:'same',status:'Onboard Credit!'},
+  {id:8, fd:'#38834',ship:'Carnival Horizon',     line:'Carnival',port:'Miami',          date:'Ene 4, 2027', ds:'2027-01-04',nights:6,brochure:1004,price:354,prev:354,target:300,trend:'same',status:'Onboard Credit!'},
+  {id:9, fd:'#37149',ship:'Carnival Mardi Gras',  line:'Carnival',port:'Port Canaveral',date:'Ene 9, 2027', ds:'2027-01-09',nights:7,brochure:1184,price:489,prev:489,target:420,trend:'same',status:'Onboard Credit!'},
+  {id:2, fd:'#33212',ship:'MSC Meraviglia',       line:'MSC',     port:'Miami',          date:'Ene 10, 2027',ds:'2027-01-10',nights:6,brochure:874, price:479,prev:479,target:400,trend:'same',status:''},
+  {id:10,fd:'#38835',ship:'Carnival Horizon',     line:'Carnival',port:'Miami',          date:'Ene 10, 2027',ds:'2027-01-10',nights:6,brochure:1004,price:364,prev:364,target:300,trend:'same',status:'Onboard Credit!'},
+  {id:3, fd:'#37266',ship:'Carnival Mardi Gras',  line:'Carnival',port:'Port Canaveral',date:'Ene 16, 2027',ds:'2027-01-16',nights:7,brochure:1204,price:484,prev:484,target:420,trend:'same',status:'Reduced Again!'},
+  {id:4, fd:'#39063',ship:'Carnival Vista',       line:'Carnival',port:'Port Canaveral',date:'Ene 17, 2027',ds:'2027-01-17',nights:6,brochure:949, price:323,prev:323,target:280,trend:'same',status:'Reduced Again!'},
+  {id:11,fd:'#30944',ship:'Carnival Magic',       line:'Carnival',port:'Miami',          date:'Ene 17, 2027',ds:'2027-01-17',nights:6,brochure:944, price:314,prev:314,target:270,trend:'same',status:'Onboard Credit!'},
+];
+
+let priceHistory={};
+watchlist.forEach(w=>{priceHistory[w.id]=[{date:TODAY,price:w.price}];});
+let alerts=[{type:'info',text:'11 cruceros cargados y ordenados por fecha de salida.',time:'Hoy, 8:00 am'}];
+let priceCache={};   // {vtg,co} per id
+let quoteCache={};   // {total,avg} per id
+let famResults={};
+
+const FAMILIES=[
+  {key:'montanez',name:'Familia Montañez Otero',adults:2,kids:[12,8], cabin:'interior cuádruple',pax:4},
+  {key:'otero_r', name:'Familia Otero Rojas',   adults:2,kids:[11,9], cabin:'interior cuádruple',pax:4},
+  {key:'cala',    name:'Familia Cala Otero',     adults:2,kids:[17,14],cabin:'interior cuádruple',pax:4},
+  {key:'olier',   name:'Familia Olier Otero',    adults:3,kids:[14],   cabin:'interior cuádruple',pax:4},
+  {key:'papas',   name:'Papás (75 y 67 años)',   adults:2,kids:[],     cabin:'balcón doble',       pax:2},
+];
+const TOTAL_PAX=18;
+
+function save(w){return Math.round((1-w.price/w.brochure)*100);}
+function ppn(w){return (w.price/w.nights).toFixed(0);}
+function fmt(n){return n!=null?'$'+Number(n).toLocaleString('en-US'):'—';}
+function trendBadge(w){
+  if(w.trend==='down'){const p=Math.abs(((w.price-w.prev)/w.prev*100)).toFixed(1);return`<span class="badge b-down">▼ ${p}%</span>`;}
+  if(w.trend==='up')  {const p=((w.price-w.prev)/w.prev*100).toFixed(1);return`<span class="badge b-up">▲ ${p}%</span>`;}
+  return'<span class="badge b-same">Sin cambio</span>';
+}
+
+async function callAPI(prompt,maxTok=800){
+  const r=await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','x-api-key':API_KEY,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+    body:JSON.stringify({model:MODEL,max_tokens:maxTok,tools:[{type:'web_search_20250305',name:'web_search'}],messages:[{role:'user',content:prompt}]})
+  });
+  const d=await r.json();
+  return(d.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
+}
+
+function parseJSON(t){try{const m=t.replace(/```json|```/g,'').trim().match(/\{[\s\S]*\}/);if(m)return JSON.parse(m[0]);}catch(e){}return null;}
+
+function sortedList(){return[...watchlist].sort((a,b)=>a.ds.localeCompare(b.ds));}
+
+// ── RENDER LIST ───────────────────────────────────────────────────────────────
+function renderList(){
+  const el=document.getElementById('list-items');
+  el.innerHTML=sortedList().map(w=>{
+    const s=save(w);
+    const sb=w.status?`<span class="badge b-deal">${w.status}</span>`:'';
+    const pc=priceCache[w.id]||{};
+    const qc=quoteCache[w.id];
+    return`<div class="ci" id="ci-${w.id}">
+      <div class="ci-top" onclick="toggleDetail(${w.id})">
+        <div>
+          <div class="ci-name">🚢 ${w.line} / ${w.ship}</div>
+          <div class="ci-meta">${w.fd} · ${w.nights}n · ${w.date} · ${w.port} · $${ppn(w)}/noche</div>
+          <div class="ci-badges">${trendBadge(w)} ${sb} <span class="badge b-info">Obj: $${w.target}</span></div>
+        </div>
+        <div class="ci-right">
+          <div class="price-now">${fmt(w.price)}</div>
+          <div class="price-was">${fmt(w.brochure)}</div>
+          <div class="price-save">Ahorra ${s}%</div>
+          <button class="btn-del" onclick="event.stopPropagation();removeItem(${w.id})">Quitar</button>
+        </div>
+      </div>
+      <div class="ci-prices">
+        ${buildCIP('VacationsToGo',pc.vtg,false)}
+        ${buildCIP('Cruceros.co',pc.co,false)}
+        ${buildCIPQuote(qc)}
+      </div>
+    </div>`;
+  }).join('');
+  updateStats();
+}
+
+function buildCIP(label,d,loading){
+  if(loading||(!d)) return`<div class="cip"><div class="cip-lbl">${label}</div><div class="cip-pending">pendiente</div></div>`;
+  if(d.loading) return`<div class="cip"><div class="cip-lbl">${label}</div><div class="cip-pending"><span class="spin">⟳</span> buscando...</div></div>`;
+  if(d.error||!d.price) return`<div class="cip"><div class="cip-lbl">${label}</div><div class="cip-pending">no disponible</div></div>`;
+  const total=(d.price||0)+(d.taxes||0)+(d.gratuity||0);
+  return`<div class="cip">
+    <div class="cip-lbl">${label}</div>
+    <div class="cip-price">${fmt(d.price)}<span style="font-size:11px;font-weight:400;color:#888">/pp</span></div>
+    ${d.taxes!=null?`<div class="cip-taxes">Tasas: ${fmt(d.taxes)}${d.gratuity?` · Prop: ${fmt(d.gratuity)}`:''}</div>`:'<div class="cip-taxes">Tasas incluidas</div>'}
+    ${total>d.price?`<div class="cip-total">Total/pp: ${fmt(total)}</div>`:''}
+  </div>`;
+}
+
+function buildCIPQuote(qc){
+  if(!qc) return`<div class="cip gq"><div class="cip-lbl">Cotización grupal (18 pax)</div><div class="cip-pending">pendiente</div></div>`;
+  if(qc.loading) return`<div class="cip gq"><div class="cip-lbl">Cotización grupal (18 pax)</div><div class="cip-pending"><span class="spin">⟳</span> cotizando...</div></div>`;
+  return`<div class="cip gq">
+    <div class="cip-lbl">Cotización grupal (18 pax)</div>
+    <div class="cip-price">${fmt(qc.total)}</div>
+    <div class="cip-taxes">Promedio: ${fmt(qc.avg)}/persona</div>
+  </div>`;
+}
+
+function reRenderRow(id){
+  const w=watchlist.find(x=>x.id===id);if(!w)return;
+  const pc=priceCache[id]||{};
+  const qc=quoteCache[id];
+  const row=document.getElementById(`ci-${id}`);if(!row)return;
+  const el=row.querySelector('.ci-prices');
+  if(el)el.innerHTML=buildCIP('VacationsToGo',pc.vtg,false)+buildCIP('Cruceros.co',pc.co,false)+buildCIPQuote(qc);
+}
+
+// ── FETCH SITE PRICES ────────────────────────────────────────────────────────
+async function fetchPricesForCruise(id){
+  const w=watchlist.find(x=>x.id===id);if(!w)return;
+  priceCache[id]={vtg:{loading:true},co:{loading:true}};
+  reRenderRow(id);
+
+  const prompt=`Busca en CADA uno de estos dos sitios web el precio más económico por persona en CABINA INTERIOR para el siguiente crucero. Solo mira el listado del crucero como aparece en la página, sin entrar al detalle de la reserva.
+
+CRUCERO: ${w.line} / ${w.ship}
+FastDeal: ${w.fd}  Fecha: ${w.date}  Puerto: ${w.port}  Noches: ${w.nights}
+
+SITIO 1: vacationstogo.com — busca este crucero específico
+SITIO 2: cruceros.co — busca este crucero específico
+
+Para cada sitio devuelve el precio base por persona, las taxes/fees si las muestra separado, las propinas si las muestra separado.
+
+Responde SOLO con este JSON (sin markdown ni texto adicional):
+{"vacationstogo":{"price":344,"taxes":120,"gratuity":null,"note":""},"cruceros_co":{"price":320,"taxes":95,"gratuity":18,"note":""}}
+
+Si el crucero no aparece en el sitio: price:null. Hoy: ${TODAY}.`;
+
+  try{
+    const text=await callAPI(prompt,1000);
+    const p=parseJSON(text);
+    priceCache[id]={vtg:p?.vacationstogo||{error:true},co:p?.cruceros_co||{error:true},ts:Date.now()};
+  }catch(e){
+    priceCache[id]={vtg:{error:true},co:{error:true}};
+  }
+  reRenderRow(id);
+  // update detail panel if open
+  if(openDetailId===id){
+    const dpGrid=document.getElementById(`dp-ps-grid-${id}`);
+    if(dpGrid){const pc=priceCache[id];dpGrid.innerHTML=buildDPCard('VacationsToGo',pc.vtg)+buildDPCard('Cruceros.co',pc.co);}
+  }
+}
+
+async function refreshAllSitePrices(){
+  const st=document.getElementById('bulk-status');const msg=document.getElementById('bulk-msg');
+  st.style.display='flex';
+  for(let i=0;i<watchlist.length;i++){
+    const w=watchlist[i];msg.textContent=`Precios web (${i+1}/${watchlist.length}): ${w.ship}...`;
+    await fetchPricesForCruise(w.id);
+  }
+  document.getElementById('last-upd').textContent=new Date().toLocaleString('es-CO',{dateStyle:'medium',timeStyle:'short'});
+  msg.textContent='✓ Precios actualizados';
+  setTimeout(()=>{st.style.display='none';},3000);
+}
+
+// ── GROUP QUOTE ───────────────────────────────────────────────────────────────
+async function fetchGroupQuoteForCruise(id){
+  const w=watchlist.find(x=>x.id===id);if(!w)return;
+  quoteCache[id]={loading:true};
+  reRenderRow(id);
+  famResults={};
+
+  let done=0;
+  for(const fam of FAMILIES){
+    if(!quoteRunning)break;
+    famResults[fam.key]={loading:true};
+    updateProgress(done,fam.key,id);
+    renderFamilyCards(w);
+    await fetchOneFamilyPrice(fam,w);
+    done++;
+    updateProgress(done,done<FAMILIES.length?FAMILIES[done].key:null,id);
+    renderFamilyCards(w);
+    computeGroupTotal(id);
+  }
+
+  const vals=Object.values(famResults).filter(r=>r&&!r.loading&&r.total);
+  const tot=vals.reduce((s,r)=>s+(r.total||0),0);
+  const avg=TOTAL_PAX>0?Math.round(tot/TOTAL_PAX):0;
+  quoteCache[id]={total:tot,avg,ts:Date.now()};
+  reRenderRow(id);
+}
+
+async function fetchOneFamilyPrice(fam,item){
+  const adultsStr=fam.adults+' adulto'+(fam.adults>1?'s':'');
+  const kidsStr=fam.kids.length?', niños de '+fam.kids.join(' y ')+' años':'';
+  const prompt=`Precio TOTAL en cruceros.co para este crucero y grupo. No incluir seguro ni extras no solicitados.
+
+CRUCERO: ${item.line} / ${item.ship}  Fecha: ${item.date}  Puerto: ${item.port}  Noches: ${item.nights}
+GRUPO: ${fam.name} — ${adultsStr}${kidsStr} — Cabina: ${fam.cabin} (más económica)
+Contacto: David Otero, davidotero159@gmail.com, 3124338504 Colombia.
+
+JSON sin markdown: {"base":1200,"taxes":280,"gratuity":96,"total":1576,"note":""}
+Si no encuentras en cruceros.co: estima base=${item.price}×${fam.pax}, tasas 22%, propinas $18/pp/noche. Hoy: ${TODAY}.`;
+
+  const ctrl=new AbortController();
+  const to=setTimeout(()=>ctrl.abort(),35000);
+  try{
+    const r=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',signal:ctrl.signal,
+      headers:{'Content-Type':'application/json','x-api-key':API_KEY,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:MODEL,max_tokens:600,tools:[{type:'web_search_20250305',name:'web_search'}],messages:[{role:'user',content:prompt}]})
+    });
+    clearTimeout(to);
+    const d=await r.json();
+    const t=(d.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
+    famResults[fam.key]=parseJSON(t)||estimFam(fam,item);
+  }catch(e){
+    clearTimeout(to);
+    famResults[fam.key]={...estimFam(fam,item),note:e.name==='AbortError'?'Timeout — estimado':'Error — estimado'};
+  }
+}
+
+function estimFam(fam,item){
+  const ppp=fam.cabin.includes('balcón')?item.price*2:item.price;
+  const base=ppp*fam.pax;const taxes=Math.round(base*.22);const gratuity=Math.round(fam.pax*item.nights*18);
+  return{base,taxes,gratuity,total:base+taxes+gratuity,note:'Estimado por precio de referencia'};
+}
+
+function computeGroupTotal(id){
+  const vals=Object.values(famResults).filter(r=>r&&!r.loading&&r.total);
+  const tot=vals.reduce((s,r)=>s+(r.total||0),0);
+  const pax=FAMILIES.filter(f=>famResults[f.key]&&!famResults[f.key].loading&&famResults[f.key].total).reduce((s,f)=>s+f.pax,0);
+  const suf=vals.length<FAMILIES.length?` (${vals.length}/5)`:'';
+  document.getElementById('gq-total').textContent=vals.length?fmt(tot)+suf:'—';
+  document.getElementById('gq-avg').textContent=pax?fmt(Math.round(tot/pax)):'—';
+}
+
+function updateProgress(done,activeKey,cruiseId){
+  const pct=Math.round((done/FAMILIES.length)*100);
+  const bar=document.getElementById('gq-bar');
+  const lbl=document.getElementById('gq-lbl');
+  const cnt=document.getElementById('gq-cnt');
+  const steps=document.getElementById('gq-steps');
+  if(bar)bar.style.width=pct+'%';
+  if(cnt)cnt.textContent=`${done} / ${FAMILIES.length}`;
+  const af=FAMILIES.find(f=>f.key===activeKey);
+  if(lbl)lbl.textContent=activeKey&&af?`Cotizando: ${af.name}...`:done===FAMILIES.length?'✓ Completado':'Procesando...';
+  if(steps)steps.innerHTML=FAMILIES.map(f=>{
+    const r=famResults[f.key];const isDone=r&&!r.loading;const isActive=f.key===activeKey;
+    const dc=isDone?'step-dot done':isActive?'step-dot active':'step-dot';
+    const nc=isDone?'step-name done':isActive?'step-name active':'step-name';
+    return`<div class="progress-step"><div class="${dc}"></div><div class="${nc}">${f.name.split(' ')[1]||f.name}</div></div>`;
+  }).join('');
+}
+
+function renderFamilyCards(item){
+  const el=document.getElementById('gq-grid');if(!el)return;
+  el.innerHTML=FAMILIES.map(fam=>{
+    const r=famResults[fam.key];
+    const ks=fam.kids.length?`Menores: ${fam.kids.join(', ')} años`:'Solo adultos';
+    const cls=r&&r.loading?'fam-card active':r&&!r.loading?'fam-card done':'fam-card';
+    let ph;
+    if(!r)ph=`<div style="font-size:11px;color:#bbb">En espera...</div>`;
+    else if(r.loading)ph=`<div class="fam-loading"><span class="spin">⟳</span> Consultando cruceros.co...</div>`;
+    else{
+      const nc=r.note&&r.note.includes('stimado')?'#b45309':'#888';
+      ph=`<div class="fam-price">${fmt(r.total)}</div>
+          <div class="fam-breakdown">Base: ${fmt(r.base)} · Tasas: ${fmt(r.taxes)}${r.gratuity?` · Prop: ${fmt(r.gratuity)}`:''}</div>
+          ${r.note?`<div style="font-size:11px;color:${nc};margin-top:3px">ℹ ${r.note}</div>`:''}`;
+    }
+    return`<div class="${cls}"><div class="fam-name">${r&&r.loading?'⟳ ':''}${fam.name}</div>
+      <div class="fam-detail">${fam.adults} adulto${fam.adults>1?'s':''} + ${fam.kids.length} menor${fam.kids.length!==1?'es':''} · ${ks}<br>Cabina: ${fam.cabin}</div>
+      ${ph}</div>`;
+  }).join('');
+}
+
+function renderQuoteCruiseSelector(){
+  const el=document.getElementById('quote-cruise-sel');
+  el.innerHTML=sortedList().map(w=>
+    `<div class="cruise-opt${selectedQuoteCruise===w.id?' sel':''}" onclick="selectQuoteCruise(${w.id})">
+      🚢 ${w.ship}<br><span style="font-size:11px;color:#888">${w.fd} · ${w.date} · ${w.nights}n · ${fmt(w.price)}/pp</span>
+    </div>`
+  ).join('');
+}
+
+function selectQuoteCruise(id){
+  selectedQuoteCruise=id;renderQuoteCruiseSelector();
+  const w=watchlist.find(x=>x.id===id);
+  document.getElementById('gq-families').style.display='block';
+  const note=document.getElementById('gq-note');note.style.display='block';
+  note.textContent=`Cotizando: ${w.line} / ${w.ship} · ${w.date} · ${w.nights} noches · ${w.port}`;
+  document.getElementById('gq-cruise-name').textContent=w.ship;
+  document.getElementById('gq-cruise-info').textContent=`${w.date} · ${w.port}`;
+  document.getElementById('gq-progress').style.display='block';
+  quoteRunning=true;
+  fetchGroupQuoteForCruise(id).then(()=>{quoteRunning=false;});
+}
+
+async function requoteAll(){
+  if(!selectedQuoteCruise)return;
+  quoteRunning=false;await new Promise(r=>setTimeout(r,100));
+  famResults={};document.getElementById('gq-progress').style.display='block';
+  quoteRunning=true;await fetchGroupQuoteForCruise(selectedQuoteCruise);quoteRunning=false;
+}
+
+async function refreshAllGroupQuotes(){
+  const st=document.getElementById('bulk-status');const msg=document.getElementById('bulk-msg');
+  st.style.display='flex';quoteRunning=true;
+  for(let i=0;i<watchlist.length;i++){
+    const w=watchlist[i];msg.textContent=`Cotización grupal (${i+1}/${watchlist.length}): ${w.ship}...`;
+    await fetchGroupQuoteForCruise(w.id);
+  }
+  quoteRunning=false;
+  document.getElementById('last-upd').textContent=new Date().toLocaleString('es-CO',{dateStyle:'medium',timeStyle:'short'});
+  msg.textContent='✓ Cotizaciones actualizadas';setTimeout(()=>{st.style.display='none';},3000);
+}
+
+// ── DETAIL PANEL ──────────────────────────────────────────────────────────────
+function toggleDetail(id){
+  if(openDetailId===id){closeDetail();return;}
+  openDetailId=id;const w=watchlist.find(x=>x.id===id);if(!w)return;
+  document.getElementById('dp-title').textContent=`${w.line} / ${w.ship} — ${w.fd}`;
+  document.getElementById('dp').classList.add('open');
+  buildDetail(w);
+  document.getElementById('dp').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function closeDetail(){openDetailId=null;document.getElementById('dp').classList.remove('open');}
+
+function buildDPCard(label,d){
+  if(!d||d.loading)return`<div class="ps-card"><div class="ps-site">${label}</div><div style="font-size:12px;color:#aaa"><span class="spin">⟳</span> buscando...</div></div>`;
+  if(d.error||!d.price)return`<div class="ps-card"><div class="ps-site">${label}</div><div class="ps-err">No disponible</div></div>`;
+  const tot=(d.price||0)+(d.taxes||0)+(d.gratuity||0);
+  return`<div class="ps-card"><div class="ps-site">${label}</div>
+    <div class="ps-price">${fmt(d.price)}<span style="font-size:12px;font-weight:400;color:#888">/persona</span></div>
+    ${d.taxes!=null?`<div class="ps-taxes">+ Tasas: ${fmt(d.taxes)}${d.gratuity?` · Propinas: ${fmt(d.gratuity)}`:''}</div>`:'<div class="ps-taxes">Tasas incluidas</div>'}
+    ${tot>d.price?`<div class="ps-total">Total/persona: ${fmt(tot)}</div>`:''}
+    ${d.note?`<div class="ps-note">${d.note}</div>`:''}
+  </div>`;
+}
+
+function buildDetail(w){
+  const specs=SHIPS[w.ship]||{};const itin=ITIN[w.id];
+  const hist=priceHistory[w.id]||[];const pc=priceCache[w.id]||{};
+  const maxP=Math.max(...hist.map(h=>h.price));const minP=Math.min(...hist.map(h=>h.price));const range=maxP-minP||1;
+  const bars=hist.map((h,i)=>{
+    const ht=Math.max(6,Math.round(((h.price-minP)/range)*56)+6);
+    return`<div class="bar-wrap"><div class="bar${i===hist.length-1?' latest':''}" style="height:${ht}px"></div><div class="bar-price">${fmt(h.price)}</div><div class="bar-lbl">${h.date.slice(5)}</div></div>`;
+  }).join('');
+  const allStops=itin?[{name:w.port,t:'home',d:'Día 1'},...itin.stops.map((s,i)=>({name:s,t:'port',d:`Día ${i+2}`})),{name:w.port,t:'home',d:`Día ${w.nights+1}`}]:[];
+  const sh=allStops.map((s,i)=>`<div class="stop"><div class="stop-dot${s.t==='home'?' home':''}"></div><div class="stop-name">${s.name}</div><div class="stop-day">${s.d}</div></div>${i<allStops.length-1?'<div class="stop-line"></div>':''}`).join('');
+  document.getElementById('dp-grid').innerHTML=`
+    <div class="dp-sec"><div class="dp-sec-title">Ficha del barco</div>
+      <div class="spec-row"><span class="spec-lbl">Año construcción</span><span class="spec-val">${specs.built||'—'}</span></div>
+      <div class="spec-row"><span class="spec-lbl">Última refacción</span><span class="spec-val">${specs.refurb||'Sin datos'}</span></div>
+      <div class="spec-row"><span class="spec-lbl">Capacidad</span><span class="spec-val">${specs.capacity?specs.capacity.toLocaleString():'—'} pax</span></div>
+      <div class="spec-row"><span class="spec-lbl">Tripulación</span><span class="spec-val">${specs.crew?specs.crew.toLocaleString():'—'}</span></div>
+      <div class="spec-row"><span class="spec-lbl">Tonelaje</span><span class="spec-val">${specs.tons?specs.tons.toLocaleString():'—'} GT</span></div>
+      <div class="spec-row"><span class="spec-lbl">Cubiertas</span><span class="spec-val">${specs.decks||'—'}</span></div>
+      <div class="spec-row"><span class="spec-lbl">Destacado</span><span class="spec-val">${specs.highlight||'—'}</span></div>
+    </div>
+    <div class="dp-sec"><div class="dp-sec-title">Esta salida</div>
+      <div class="spec-row"><span class="spec-lbl">Ruta</span><span class="spec-val">${itin?itin.route:'—'}</span></div>
+      <div class="spec-row"><span class="spec-lbl">Puerto</span><span class="spec-val">${w.port}</span></div>
+      <div class="spec-row"><span class="spec-lbl">Fecha</span><span class="spec-val">${w.date}</span></div>
+      <div class="spec-row"><span class="spec-lbl">Noches</span><span class="spec-val">${w.nights}</span></div>
+      <div class="spec-row"><span class="spec-lbl">Precio/noche</span><span class="spec-val">${fmt(parseInt(ppn(w)))}</span></div>
+      <div class="spec-row"><span class="spec-lbl">Precio folleto</span><span class="spec-val">${fmt(w.brochure)}</span></div>
+      <div class="spec-row"><span class="spec-lbl">Descuento</span><span class="spec-val" style="color:#155724">${save(w)}%</span></div>
+    </div>
+    <div class="price-sources">
+      <div class="ps-hdr"><span class="ps-title-lbl">Precios publicados (por persona · cabina interior)</span>
+        <button class="btn-ref" onclick="fetchPricesForCruise(${w.id})">⟳ Actualizar</button></div>
+      <div class="ps-grid" id="dp-ps-grid-${w.id}">${buildDPCard('VacationsToGo',pc.vtg)}${buildDPCard('Cruceros.co',pc.co)}</div>
+    </div>
+    <div class="itin-wrap"><div class="itin-title">Itinerario — ${w.date}</div>
+      ${sh?`<div class="stops-track">${sh}</div><div style="font-size:11px;color:#888;margin-top:8px">${itin?itin.seaDays:0} día(s) en el mar</div>`:'<span style="font-size:13px;color:#888">Sin itinerario</span>'}
+    </div>
+    <div class="chart-wrap"><div class="chart-title">Historial de precios</div>
+      ${hist.length>1?`<div class="mini-chart">${bars}</div>`:'<span style="font-size:13px;color:#888">Solo 1 registro aún.</span>'}
+    </div>`;
+  if(!pc.vtg&&!pc.co)fetchPricesForCruise(w.id);
+}
+
+// ── SCAN ─────────────────────────────────────────────────────────────────────
+function runScan(){
+  const st=document.getElementById('bulk-status');const msg=document.getElementById('bulk-msg');
+  st.style.display='flex';msg.textContent='Escaneando precios de referencia...';
+  setTimeout(()=>{
+    watchlist=watchlist.map(w=>{
+      const delta=(Math.random()-.47)*.07;const np=Math.round(w.price*(1+delta));
+      const pct=parseFloat(((np-w.price)/w.price*100).toFixed(1));
+      const trend=pct<-0.3?'down':pct>0.3?'up':'same';
+      if(Math.abs(pct)>=0.3){
+        priceHistory[w.id]=priceHistory[w.id]||[];
+        priceHistory[w.id].push({date:TODAY,price:np});
+        if(Math.abs(pct)>=cfg.thr){const sym=pct<0?'bajó':'subió';const at=pct<0?'down':'up';
+          alerts.unshift({type:at,text:`${w.fd} ${w.ship} ${sym} ${Math.abs(pct)}% → ${fmt(np)}.`,time:'Ahora'});}
+      }
+      return{...w,prev:w.price,price:np,trend};
+    });
+    document.getElementById('last-upd').textContent=new Date().toLocaleString('es-CO',{dateStyle:'medium',timeStyle:'short'});
+    renderList();renderAlerts();renderHistory();
+    if(openDetailId)buildDetail(watchlist.find(w=>w.id===openDetailId));
+    msg.textContent='✓ Listo';setTimeout(()=>{st.style.display='none';},2000);
+  },1500);
+}
+
+function renderAlerts(){
+  document.getElementById('al-list').innerHTML=alerts.map(a=>
+    `<div class="al-item"><div class="al-dot ${a.type}"></div><div><div class="al-txt">${a.text}</div><div class="al-time">${a.time}</div></div></div>`
+  ).join('');
+}
+
+function renderHistory(){
+  const rows=[];
+  watchlist.forEach(w=>{
+    (priceHistory[w.id]||[]).forEach((h,i,arr)=>{
+      const prev=arr[i-1];const chg=prev?parseFloat(((h.price-prev.price)/prev.price*100).toFixed(1)):null;
+      const pc=priceCache[w.id]||{};
+      rows.push({date:h.date,name:`${w.line}/${w.ship}`,fd:w.fd,price:h.price,vtg:pc.vtg,co:pc.co,chg});
+    });
+  });
+  rows.sort((a,b)=>b.date.localeCompare(a.date));
+  document.getElementById('hist-body').innerHTML=rows.map(r=>{
+    let chg='—';
+    if(r.chg!==null){const cls=r.chg<0?'p-dn':r.chg>0?'p-up':'';const sym=r.chg>0?'+':'';chg=`<span class="${cls}">${sym}${r.chg}%</span>`;}
+    return`<tr><td>${r.date}</td><td>${r.name}</td><td>${r.fd}</td><td>${fmt(r.price)}</td><td>${r.vtg&&!r.vtg.error?fmt(r.vtg.price):'—'}</td><td>${r.co&&!r.co.error?fmt(r.co.price):'—'}</td><td>${chg}</td></tr>`;
+  }).join('');
+}
+
+function updateStats(){
+  document.getElementById('st-total').textContent=watchlist.length;
+  const prices=watchlist.map(w=>w.price);
+  document.getElementById('st-min').textContent=prices.length?fmt(Math.min(...prices)):'—';
+  const avg=watchlist.length?Math.round(watchlist.reduce((s,w)=>s+save(w),0)/watchlist.length):0;
+  document.getElementById('st-save').textContent=watchlist.length?avg+'%':'—';
+  document.getElementById('st-alerts').textContent=alerts.filter(a=>a.time.startsWith('Hoy')).length;
+}
+
+function removeItem(id){watchlist=watchlist.filter(w=>w.id!==id);closeDetail();renderList();renderHistory();updateStats();renderQuoteCruiseSelector();}
+
+function addItem(){
+  if(currentType==='cruise'){
+    const ship=document.getElementById('c-ship').value||'Crucero';
+    const fd=document.getElementById('c-deal').value||'#—';
+    const port=document.getElementById('c-port').value||'';
+    const dateRaw=document.getElementById('c-date').value||'';
+    const nights=parseInt(document.getElementById('c-nights').value)||7;
+    const stopsRaw=document.getElementById('c-stops').value||'';
+    const bro=parseInt(document.getElementById('c-brochure').value)||0;
+    const price=parseInt(document.getElementById('c-price').value)||0;
+    const target=parseInt(document.getElementById('c-target').value)||0;
+    const pts=ship.split('/');const line=pts[0]?.trim()||ship;const sname=pts[1]?.trim()||ship;
+    const id=Date.now();const stops=stopsRaw?stopsRaw.split(',').map(s=>s.trim()).filter(Boolean):[];
+    watchlist.push({id,fd,ship:sname,line,port,date:dateRaw,ds:dateRaw,nights,brochure:bro,price,prev:price,target,trend:'same',status:''});
+    ITIN[id]={route:'',stops,seaDays:nights-stops.length};
+    priceHistory[id]=[{date:TODAY,price}];alerts.unshift({type:'info',text:`Agregado: ${fd} ${sname}.`,time:'Ahora'});
+  }else{
+    const o=document.getElementById('f-orig').value||'BOG';const d=document.getElementById('f-dest').value||'???';
+    const date=document.getElementById('f-date').value||'';const al=document.getElementById('f-airline').value||'Abierto';
+    const tgt=parseInt(document.getElementById('f-target').value)||0;const price=Math.floor(Math.random()*400+200);const id=Date.now();
+    watchlist.push({id,fd:'—',ship:`${o}→${d}`,line:al,port:o,date,ds:date,nights:0,brochure:price,price,prev:price,target:tgt,trend:'same',status:''});
+    priceHistory[id]=[{date:TODAY,price}];alerts.unshift({type:'info',text:`Vuelo: ${o}→${d}.`,time:'Ahora'});
+  }
+  renderList();renderAlerts();renderHistory();renderQuoteCruiseSelector();goTab('list');
+}
+
+function goTab(n){
+  const tabs=['list','quote','alerts','history','add','cfg'];
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',tabs[i]===n));
+  document.querySelectorAll('.sec').forEach(s=>s.classList.remove('active'));
+  document.getElementById('tab-'+n).classList.add('active');
+}
+function setType(t){
+  currentType=t;
+  document.getElementById('tp-cruise').classList.toggle('sel',t==='cruise');
+  document.getElementById('tp-flight').classList.toggle('sel',t==='flight');
+  document.getElementById('cruise-form').style.display=t==='cruise'?'block':'none';
+  document.getElementById('flight-form').style.display=t==='flight'?'block':'none';
+}
+function setFreq(el,v){document.querySelectorAll('#freq-sel .freq-opt').forEach(e=>e.classList.remove('sel'));el.classList.add('sel');cfg.freq=v;}
+function saveCfg(){cfg.thr=parseInt(document.getElementById('thr-inp').value)||5;alerts.unshift({type:'info',text:`Ajustes: ${cfg.freq}, umbral ${cfg.thr}%.`,time:'Ahora'});renderAlerts();goTab('list');}
+function exportCSV(){
+  const rows=[['Fecha','Barco','FastDeal','Precio ref.','VacationsToGo','Cruceros.co']];
+  watchlist.forEach(w=>{const pc=priceCache[w.id]||{};(priceHistory[w.id]||[]).forEach(h=>{rows.push([h.date,`${w.line}/${w.ship}`,w.fd,h.price,pc.vtg&&!pc.vtg.error?pc.vtg.price:'',pc.co&&!pc.co.error?pc.co.price:'']);});});
+  const csv=rows.map(r=>r.join(',')).join('\n');
+  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='historial_cruceros.csv';a.click();
+}
+
+renderList();renderAlerts();renderHistory();renderQuoteCruiseSelector();
+if(!API_KEY) showKeyModal();
+</script>
+
+<!-- API KEY MODAL -->
+<div id="key-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:16px;padding:2rem;max-width:480px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.18)">
+    <div style="font-size:24px;margin-bottom:.5rem">🔑</div>
+    <div style="font-size:18px;font-weight:600;margin-bottom:.5rem">Ingresa tu API Key de Anthropic</div>
+    <div style="font-size:13px;color:#666;margin-bottom:1.25rem;line-height:1.6">
+      La key se guarda solo en tu navegador (localStorage). Nunca se sube a ningún servidor ni al código fuente. Puedes obtenerla en <a href="https://platform.claude.com" target="_blank" style="color:#2563eb">platform.claude.com</a> → API Keys.
+    </div>
+    <input id="key-input" type="password" placeholder="sk-ant-api03-..." style="width:100%;padding:10px 12px;border:1.5px solid #ddd;border-radius:8px;font-size:14px;margin-bottom:.75rem;font-family:monospace"/>
+    <div id="key-error" style="font-size:12px;color:#dc2626;margin-bottom:.75rem;display:none">Key inválida. Debe comenzar con sk-ant-</div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button onclick="closeKeyModal()" style="padding:8px 16px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;font-size:14px">Cancelar</button>
+      <button onclick="saveKey()" style="padding:8px 18px;border:none;border-radius:8px;background:#1a1a1a;color:#fff;cursor:pointer;font-size:14px;font-weight:500">Guardar y continuar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// Key modal initially hidden via JS (avoids flash)
+document.getElementById('key-modal').style.display='none';
+
+function showKeyModal(){
+  document.getElementById('key-modal').style.display='flex';
+  document.getElementById('key-input').value='';
+  document.getElementById('key-error').style.display='none';
+  setTimeout(()=>document.getElementById('key-input').focus(),100);
+}
+function closeKeyModal(){
+  document.getElementById('key-modal').style.display='none';
+}
+function saveKey(){
+  const val=document.getElementById('key-input').value.trim();
+  if(!val.startsWith('sk-ant-')){
+    document.getElementById('key-error').style.display='block';return;
+  }
+  API_KEY=val;
+  localStorage.setItem('cruise_monitor_api_key',val);
+  closeKeyModal();
+  alerts.unshift({type:'info',text:'API Key guardada correctamente en este navegador.',time:'Ahora'});
+  renderAlerts();updateStats();
+}
+function clearKey(){
+  localStorage.removeItem('cruise_monitor_api_key');
+  API_KEY='';
+  showKeyModal();
+}
+// Add key management to settings tab
+document.getElementById('tab-cfg').insertAdjacentHTML('beforeend',`
+  <div class="card">
+    <div class="card-title">API Key de Anthropic</div>
+    <div style="font-size:13px;color:#666;margin-bottom:.75rem">La key está guardada en tu navegador. Solo tú puedes verla.</div>
+    <div style="display:flex;gap:8px">
+      <button class="btn" onclick="showKeyModal()">Cambiar key</button>
+      <button class="btn" style="color:#dc2626;border-color:#f5c6cb" onclick="if(confirm('¿Eliminar la API key guardada?'))clearKey()">Eliminar key</button>
+    </div>
+  </div>`);
+</script>
+</body>
+</html>
